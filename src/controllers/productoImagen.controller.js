@@ -1,7 +1,7 @@
 import path from "path";
 import fs from "fs";
 import multer from "multer";
-import ProductoImagen from "../models/ProductoImagen.model.js";
+import ProductoImagen from "../models/productoImagen.model.js";
 
 // ================= CONFIG MULTER =================
 const storage = multer.diskStorage({
