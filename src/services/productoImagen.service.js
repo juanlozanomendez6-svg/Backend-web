@@ -1,4 +1,4 @@
-import ProductoImagen from "../models/productoImagen.model";
+import ProductoImagen from "../models/ProductoImagen.model";
 
 class ProductoImagenService {
   async getImagenesByProducto(productoId) {
