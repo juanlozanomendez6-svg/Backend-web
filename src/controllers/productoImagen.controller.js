@@ -1,7 +1,7 @@
 import path from "path";
 import fs from "fs";
 import multer from "multer";
-import ProductoImagenService from "../services/productoImagen.service.js";
+import productoImagenService from "../services/productoImagen.service.js";
 
 // ================= CONFIG MULTER =================
 const storage = multer.diskStorage({
@@ -32,15 +32,14 @@ export const upload = multer({
 export const listar = async (req, res, next) => {
   try {
     const { productoId } = req.params;
-    const imagenes = await ProductoImagen.findAll({
-      where: { producto_id: productoId },
-    });
+    const imagenes = await productoImagenService.getImagenesByProducto(
+      productoId
+    );
 
-    // Construir URL completa
     const host = `${req.protocol}://${req.get("host")}`;
     const imagenesConUrl = imagenes.map((img) => ({
       id: img.id,
-      url: `${host}/uploads/${img.url}`, // <-- aquí agregamos host y uploads
+      url: `${host}/uploads/${img.url}`,
       descripcion: img.descripcion,
     }));
 
@@ -54,7 +53,7 @@ export const listar = async (req, res, next) => {
 export const obtener = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const imagen = await ProductoImagen.findByPk(id);
+    const imagen = await productoImagenService.getImagen(id);
     if (!imagen)
       return res
         .status(404)
@@ -78,11 +77,10 @@ export const crear = async (req, res, next) => {
         .status(400)
         .json({ success: false, message: "Archivo no encontrado" });
 
-    const url = req.file.filename; // solo nombre
+    const url = req.file.filename;
     const descripcion = req.body.descripcion || "";
 
-    const nuevaImagen = await ProductoImagen.create({
-      producto_id: productoId,
+    const nuevaImagen = await productoImagenService.createImagen(productoId, {
       url,
       descripcion,
     });
@@ -100,22 +98,17 @@ export const crear = async (req, res, next) => {
 export const actualizar = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const imagen = await ProductoImagen.findByPk(id);
+    const data = {};
+
+    if (req.file) data.url = req.file.filename;
+    if (req.body.descripcion !== undefined)
+      data.descripcion = req.body.descripcion;
+
+    const imagen = await productoImagenService.updateImagen(id, data);
     if (!imagen)
       return res
         .status(404)
         .json({ success: false, message: "Imagen no encontrada" });
-
-    if (req.file) {
-      const oldPath = path.join(path.resolve(), "uploads", imagen.url);
-      if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
-
-      imagen.url = req.file.filename; // solo nombre
-    }
-
-    if (req.body.descripcion !== undefined)
-      imagen.descripcion = req.body.descripcion;
-    await imagen.save();
 
     const host = `${req.protocol}://${req.get("host")}`;
     imagen.url = `${host}/uploads/${imagen.url}`;
@@ -130,16 +123,12 @@ export const actualizar = async (req, res, next) => {
 export const eliminar = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const imagen = await ProductoImagen.findByPk(id);
-    if (!imagen)
+    const success = await productoImagenService.deleteImagen(id);
+    if (!success)
       return res
         .status(404)
         .json({ success: false, message: "Imagen no encontrada" });
 
-    const filePath = path.join(path.resolve(), "uploads", imagen.url);
-    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-
-    await imagen.destroy();
     res.json({ success: true, message: "Imagen eliminada correctamente" });
   } catch (error) {
     next(error);
