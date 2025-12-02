@@ -1,0 +1,41 @@
+{
+  "name": "backend-web",
+  "version": "1.0.0",
+  "description": "Backend Node.js para sistema POS",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
+    "seed": "node scripts/seed.js"
+  },
+  "keywords": [
+    "pos",
+    "backend",
+    "nodejs",
+    "express"
+  ],
+  "author": "Tu Nombre",
+  "license": "ISC",
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "express-rate-limit": "^7.5.1",
+    "helmet": "^7.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "morgan": "^1.10.0",
+    "multer": "^2.0.2",
+    "pg": "^8.11.3",
+    "sequelize": "^6.32.1"
+  },
+  "devDependencies": {
+    "jest": "^29.6.2",
+    "nodemon": "^3.0.1",
+    "supertest": "^6.3.3"
+  }
+}
