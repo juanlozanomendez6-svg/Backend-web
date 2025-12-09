@@ -11,7 +11,7 @@ const Venta = sequelize.define(
       autoIncrement: true,
     },
     usuario_id: {
-      type: DataTypes.STRING, // 👈 MongoDB ID es string
+      type: DataTypes.INTEGER,
       allowNull: false,
     },
     total: {
