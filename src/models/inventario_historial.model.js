@@ -8,7 +8,7 @@ const InventarioHistorial = sequelize.define(
   "InventarioHistorial",
   {
     id: {
-      type: DataTypes.STRING,
+      type: DataTypes.INTEGER,
       primaryKey: true,
       autoIncrement: true,
     },
@@ -21,7 +21,7 @@ const InventarioHistorial = sequelize.define(
       },
     },
     usuario_id: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.STRING,
       allowNull: false,
       references: {
         model: Usuario,
