@@ -21,12 +21,8 @@ const InventarioHistorial = sequelize.define(
       },
     },
     usuario_id: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.STRING,
       allowNull: false,
-      references: {
-        model: Usuario,
-        key: "id",
-      },
     },
     cambio: {
       type: DataTypes.INTEGER,

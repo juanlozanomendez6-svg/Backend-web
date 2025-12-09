@@ -2,7 +2,7 @@ import { sequelize } from "../config/db.js";
 import Venta from "../models/venta.model.js";
 import DetalleVenta from "../models/detalle_venta.model.js";
 import Producto from "../models/producto.model.js";
-import Usuario from "../models/usuario.model.js";
+import Usuario from "../models/usuario.mongo.model.js"; // MongoDB
 import logger from "../config/logger.js";
 import { Op } from "sequelize";
 
@@ -28,11 +28,6 @@ class VentaService {
         where: whereClause,
         include: [
           {
-            model: Usuario,
-            as: "usuario",
-            attributes: ["id", "nombre", "email"],
-          },
-          {
             model: DetalleVenta,
             as: "detalles",
             include: [
@@ -47,7 +42,25 @@ class VentaService {
         order: [["fecha", "DESC"]],
       });
 
-      return { success: true, data: ventas };
+      // Traer usuarios desde MongoDB
+      const usuarioIds = ventas.map((v) => v.usuario_id);
+      const usuarios = await Usuario.find({ _id: { $in: usuarioIds } });
+
+      const ventasConUsuario = ventas.map((v) => {
+        const usuario = usuarios.find((u) => u._id.toString() === v.usuario_id);
+        return {
+          ...v.toJSON(),
+          usuario: usuario
+            ? {
+                id: usuario._id.toString(),
+                nombre: usuario.nombre,
+                email: usuario.email,
+              }
+            : null,
+        };
+      });
+
+      return { success: true, data: ventasConUsuario };
     } catch (error) {
       logger.error("Error en VentaService.getAllVentas:", error);
       return { success: false, message: "Error al obtener ventas" };
@@ -61,11 +74,6 @@ class VentaService {
     try {
       const venta = await Venta.findByPk(id, {
         include: [
-          {
-            model: Usuario,
-            as: "usuario",
-            attributes: ["id", "nombre", "email"],
-          },
           {
             model: DetalleVenta,
             as: "detalles",
@@ -82,7 +90,21 @@ class VentaService {
 
       if (!venta) return { success: false, message: "Venta no encontrada" };
 
-      return { success: true, data: venta };
+      // Buscar usuario en MongoDB
+      const usuario = await Usuario.findById(venta.usuario_id);
+
+      const ventaConUsuario = {
+        ...venta.toJSON(),
+        usuario: usuario
+          ? {
+              id: usuario._id.toString(),
+              nombre: usuario.nombre,
+              email: usuario.email,
+            }
+          : null,
+      };
+
+      return { success: true, data: ventaConUsuario };
     } catch (error) {
       logger.error("Error en VentaService.getVentaById:", error);
       return { success: false, message: "Error al obtener venta" };
@@ -104,9 +126,7 @@ class VentaService {
 
       let total = 0;
 
-      // -------------------------------
       // Validar productos + calcular totales
-      // -------------------------------
       for (const detalle of detalles) {
         const producto = await Producto.findByPk(detalle.producto_id);
 
@@ -122,14 +142,10 @@ class VentaService {
         total += detalle.subtotal;
       }
 
-      // -------------------------------
       // Crear cabecera de la venta
-      // -------------------------------
       const venta = await Venta.create({ usuario_id, total }, { transaction });
 
-      // -------------------------------
-      // Insertar detalles
-      // -------------------------------
+      // Insertar detalles y descontar stock
       for (const detalle of detalles) {
         await DetalleVenta.create(
           {
@@ -142,7 +158,6 @@ class VentaService {
           { transaction }
         );
 
-        // ↓ Descontar stock
         await Producto.decrement(
           { stock: detalle.cantidad },
           { where: { id: detalle.producto_id }, transaction }
@@ -151,16 +166,9 @@ class VentaService {
 
       await transaction.commit();
 
-      // -------------------------------
-      // Regresar venta completa
-      // -------------------------------
+      // Traer venta completa y usuario desde MongoDB
       const ventaCompleta = await Venta.findByPk(venta.id, {
         include: [
-          {
-            model: Usuario,
-            as: "usuario",
-            attributes: ["id", "nombre", "email"],
-          },
           {
             model: DetalleVenta,
             as: "detalles",
@@ -175,9 +183,20 @@ class VentaService {
         ],
       });
 
+      const usuario = await Usuario.findById(usuario_id);
+
       return {
         success: true,
-        data: ventaCompleta,
+        data: {
+          ...ventaCompleta.toJSON(),
+          usuario: usuario
+            ? {
+                id: usuario._id.toString(),
+                nombre: usuario.nombre,
+                email: usuario.email,
+              }
+            : null,
+        },
         message: "Venta registrada exitosamente",
       };
     } catch (error) {
@@ -196,11 +215,8 @@ class VentaService {
   async getVentasPorPeriodo(fechaInicio, fechaFin) {
     try {
       const ventas = await Venta.findAll({
-        where: {
-          fecha: { [Op.between]: [fechaInicio, fechaFin] },
-        },
+        where: { fecha: { [Op.between]: [fechaInicio, fechaFin] } },
         include: [
-          { model: Usuario, as: "usuario", attributes: ["nombre"] },
           {
             model: DetalleVenta,
             as: "detalles",
@@ -210,6 +226,24 @@ class VentaService {
           },
         ],
         order: [["fecha", "ASC"]],
+      });
+
+      // Buscar todos los usuarios de MongoDB
+      const usuarioIds = ventas.map((v) => v.usuario_id);
+      const usuarios = await Usuario.find({ _id: { $in: usuarioIds } });
+
+      const ventasConUsuario = ventas.map((v) => {
+        const usuario = usuarios.find((u) => u._id.toString() === v.usuario_id);
+        return {
+          ...v.toJSON(),
+          usuario: usuario
+            ? {
+                id: usuario._id.toString(),
+                nombre: usuario.nombre,
+                email: usuario.email,
+              }
+            : null,
+        };
       });
 
       const totalVentas = ventas.length;
@@ -222,7 +256,7 @@ class VentaService {
       return {
         success: true,
         data: {
-          ventas,
+          ventas: ventasConUsuario,
           estadisticas: {
             totalVentas,
             totalIngresos,
