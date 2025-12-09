@@ -13,7 +13,7 @@ class AuthService {
     try {
       const { nombre, email, password, rol_id } = userData;
 
-      // Buscar usuario en MONGO
+      // Verificar si el usuario ya existe
       const existingUser = await UsuarioMongo.findOne({ email });
       if (existingUser) {
         return { success: false, message: "El usuario ya existe" };
@@ -25,13 +25,21 @@ class AuthService {
       const usuario = await UsuarioMongo.create({
         nombre,
         email,
-        password: passwordHash, // 👈 CAMBIO IMPORTANTE
+        password_hash: passwordHash,
         rol_id: rol_id || 2,
       });
 
-      // Rol en Postgres
-      const rol = await Rol.findByPk(usuario.rol_id);
-      const rolNombre = rol?.nombre || "sin-rol";
+      // Obtener rol desde Postgres si existe
+      let rolNombre = "sin-rol";
+      try {
+        const rol = await Rol.findByPk(usuario.rol_id);
+        if (rol) rolNombre = rol.nombre;
+      } catch (error) {
+        logger.warn(
+          "No se pudo obtener rol de Postgres al registrar usuario, usando rol por defecto:",
+          error
+        );
+      }
 
       const token = generateToken({
         id: usuario._id,
@@ -61,31 +69,41 @@ class AuthService {
   }
 
   // ============================================================
-  //                       LOGIN (MongoDB)
+  //                       LOGIN (MongoDB) con logs
   // ============================================================
   async login(email, password) {
     try {
+      console.log("🔍 Buscando usuario en Mongo:", email);
       const usuario = await UsuarioMongo.findOne({ email });
 
       if (!usuario) {
+        console.log("❌ Usuario no encontrado");
         return { success: false, message: "Credenciales inválidas" };
       }
 
       if (!usuario.activo) {
+        console.log("❌ Usuario inactivo:", usuario);
         return { success: false, message: "Usuario inactivo" };
       }
 
-      const isValidPassword = await comparePassword(
-        password,
-        usuario.password // 👈 CAMBIO IMPORTANTE
-      );
+      console.log("🔑 Comparando contraseña...");
+      const isValid = await comparePassword(password, usuario.password_hash);
+      console.log("Resultado comparePassword:", isValid);
 
-      if (!isValidPassword) {
+      if (!isValid) {
+        console.log("❌ Contraseña incorrecta");
         return { success: false, message: "Credenciales inválidas" };
       }
 
-      const rol = await Rol.findByPk(usuario.rol_id);
-      const rolNombre = rol?.nombre || "sin-rol";
+      console.log("✅ Usuario validado:", usuario.email);
+
+      let rolNombre = "sin-rol";
+      try {
+        const rol = await Rol.findByPk(usuario.rol_id);
+        if (rol) rolNombre = rol.nombre;
+      } catch (err) {
+        console.warn("⚠️ No se pudo obtener rol:", err);
+      }
 
       const token = generateToken({
         id: usuario._id,
@@ -109,7 +127,7 @@ class AuthService {
         message: "Login exitoso",
       };
     } catch (error) {
-      logger.error("💥 Error en AuthService.login:", error);
+      console.error("💥 ERROR INTERNO login:", error);
       return { success: false, message: "Error en el login" };
     }
   }
@@ -119,19 +137,30 @@ class AuthService {
   // ============================================================
   async getProfile(userId) {
     try {
-      const usuario = await UsuarioMongo.findById(userId).select("-password");
+      const usuario = await UsuarioMongo.findById(userId).select(
+        "-password_hash"
+      );
 
       if (!usuario) {
         return { success: false, message: "Usuario no encontrado" };
       }
 
-      const rol = await Rol.findByPk(usuario.rol_id);
+      let rolNombre = "sin-rol";
+      try {
+        const rol = await Rol.findByPk(usuario.rol_id);
+        if (rol) rolNombre = rol.nombre;
+      } catch (error) {
+        logger.warn(
+          "No se pudo obtener rol de Postgres al obtener perfil, usando rol por defecto:",
+          error
+        );
+      }
 
       return {
         success: true,
         data: {
           ...usuario.toObject(),
-          rol_nombre: rol?.nombre || "sin-rol",
+          rol_nombre: rolNombre,
         },
       };
     } catch (error) {
