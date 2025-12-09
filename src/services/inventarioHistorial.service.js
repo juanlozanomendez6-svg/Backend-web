@@ -1,16 +1,18 @@
 // src/services/inventarioHistorial.service.js
 import InventarioHistorial from "../models/inventario_historial.model.js";
 import Producto from "../models/producto.model.js";
+import Usuario from "../models/usuario.model.js";
 import logger from "../config/logger.js";
 import { Op } from "sequelize";
 
 class InventarioHistorialService {
-  // ===================== Obtener historial de movimientos =====================
+  // Obtener historial de movimientos
   async getHistorial(filters = {}) {
     try {
       const whereClause = {};
 
       if (filters.producto_id) whereClause.producto_id = filters.producto_id;
+
       if (filters.fecha_inicio && filters.fecha_fin) {
         whereClause.fecha = {
           [Op.between]: [filters.fecha_inicio, filters.fecha_fin],
@@ -25,6 +27,7 @@ class InventarioHistorialService {
             as: "producto",
             attributes: ["id", "nombre", "stock"],
           },
+          { model: Usuario, as: "usuario", attributes: ["id", "nombre"] },
         ],
         order: [["fecha", "DESC"]],
       });
@@ -45,12 +48,11 @@ class InventarioHistorialService {
     }
   }
 
-  // ===================== Registrar movimiento de inventario =====================
+  // Registrar movimiento de inventario
   async registrarMovimiento(movimientoData) {
     try {
       const { producto_id, usuario_id, cambio, motivo } = movimientoData;
 
-      // Validar producto
       const producto = await Producto.findByPk(producto_id);
       if (!producto)
         return {
@@ -64,21 +66,34 @@ class InventarioHistorialService {
         return { success: false, data: null, message: "Stock insuficiente" };
       }
 
-      // Crear movimiento
+      // Crear el movimiento
       const movimiento = await InventarioHistorial.create({
         producto_id,
-        usuario_id, // string de MongoDB
+        usuario_id,
         cambio,
         motivo,
       });
 
-      // Actualizar stock en Producto
+      // Actualizar el stock siempre, incluso para ventas
       await producto.increment("stock", { by: cambio });
 
-      // Devolver movimiento creado (sin incluir usuario)
+      const movimientoCompleto = await InventarioHistorial.findByPk(
+        movimiento.id,
+        {
+          include: [
+            {
+              model: Producto,
+              as: "producto",
+              attributes: ["id", "nombre", "stock"],
+            },
+            { model: Usuario, as: "usuario", attributes: ["nombre"] },
+          ],
+        }
+      );
+
       return {
         success: true,
-        data: movimiento,
+        data: movimientoCompleto || {},
         message: "Movimiento registrado exitosamente",
       };
     } catch (error) {
@@ -94,7 +109,7 @@ class InventarioHistorialService {
     }
   }
 
-  // ===================== Productos con stock bajo =====================
+  // Obtener productos con stock bajo
   async getStockBajo(umbral = 10) {
     try {
       const productos = await Producto.findAll({
@@ -119,7 +134,7 @@ class InventarioHistorialService {
     }
   }
 
-  // ===================== Estadísticas del inventario =====================
+  // Estadísticas del inventario
   async getEstadisticasInventario() {
     try {
       const totalProductos = await Producto.count({ where: { activo: true } });
