@@ -2,7 +2,6 @@
 import { DataTypes } from "sequelize";
 import { sequelize } from "../config/db.js";
 import Producto from "./producto.model.js";
-import Usuario from "./usuario.model.js";
 
 const InventarioHistorial = sequelize.define(
   "InventarioHistorial",
@@ -21,7 +20,7 @@ const InventarioHistorial = sequelize.define(
       },
     },
     usuario_id: {
-      type: DataTypes.STRING,
+      type: DataTypes.STRING, // id del usuario en MongoDB
       allowNull: false,
     },
     cambio: {
@@ -52,13 +51,14 @@ InventarioHistorial.belongsTo(Producto, {
   as: "producto",
 });
 
-Usuario.hasMany(InventarioHistorial, {
-  foreignKey: "usuario_id",
-  as: "acciones",
-});
-InventarioHistorial.belongsTo(Usuario, {
-  foreignKey: "usuario_id",
-  as: "usuario",
-});
+// ❌ Eliminamos relaciones con Usuario porque está en MongoDB
+// Usuario.hasMany(InventarioHistorial, {
+//   foreignKey: "usuario_id",
+//   as: "acciones",
+// });
+// InventarioHistorial.belongsTo(Usuario, {
+//   foreignKey: "usuario_id",
+//   as: "usuario",
+// });
 
 export default InventarioHistorial;
