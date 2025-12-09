@@ -19,10 +19,6 @@ const InventarioHistorial = sequelize.define(
         key: "id",
       },
     },
-    usuario_id: {
-      type: DataTypes.STRING, // _id de MongoDB
-      allowNull: false,
-    },
     cambio: {
       type: DataTypes.INTEGER,
       allowNull: false,

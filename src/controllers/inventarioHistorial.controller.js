@@ -13,7 +13,6 @@ const InventarioHistorialController = {
 
       const result = await inventarioHistorialService.getHistorial(filters);
 
-      // Aseguramos que siempre haya data (aunque esté vacía)
       res.json({
         success: result.success,
         data: Array.isArray(result.data) ? result.data : [],
@@ -35,10 +34,8 @@ const InventarioHistorialController = {
   // Registrar un movimiento de inventario
   async registrarMovimiento(req, res) {
     try {
-      const movimientoData = {
-        ...req.body,
-        usuario_id: req.user.id, // Usuario autenticado
-      };
+      // Solo enviamos los campos que realmente existen en la tabla
+      const movimientoData = { ...req.body };
 
       const result = await inventarioHistorialService.registrarMovimiento(
         movimientoData

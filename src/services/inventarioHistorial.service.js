@@ -1,7 +1,6 @@
 // src/services/inventarioHistorial.service.js
 import InventarioHistorial from "../models/inventario_historial.model.js";
 import Producto from "../models/producto.model.js";
-import Usuario from "../models/usuario.mongo.model.js";
 import logger from "../config/logger.js";
 import { Op } from "sequelize";
 
@@ -30,26 +29,11 @@ class InventarioHistorialService {
         order: [["fecha", "DESC"]],
       });
 
-      // Obtener usuarios de MongoDB
-      const usuarioIds = movimientos.map((m) => m.usuario_id);
-      const usuarios = await Usuario.find({ _id: { $in: usuarioIds } });
-
-      // Combinar datos
-      const historialCompleto = movimientos.map((m) => {
-        const usuario = usuarios.find((u) => u._id.toString() === m.usuario_id);
-        return {
-          ...m.toJSON(),
-          usuario: usuario
-            ? { id: usuario._id.toString(), nombre: usuario.nombre }
-            : null,
-        };
-      });
-
       return {
         success: true,
-        data: historialCompleto,
+        data: movimientos,
         message:
-          historialCompleto.length === 0
+          movimientos.length === 0
             ? "No hay movimientos en el historial"
             : null,
       };
@@ -64,7 +48,7 @@ class InventarioHistorialService {
   }
 
   // Registrar movimiento de inventario
-  async registrarMovimiento({ producto_id, usuario_id, cambio, motivo }) {
+  async registrarMovimiento({ producto_id, cambio, motivo }) {
     try {
       const producto = await Producto.findByPk(producto_id);
       if (!producto) {
@@ -83,7 +67,6 @@ class InventarioHistorialService {
       // Crear movimiento en Postgres
       const movimiento = await InventarioHistorial.create({
         producto_id,
-        usuario_id, // ObjectId como string
         cambio,
         motivo,
       });
@@ -120,7 +103,7 @@ class InventarioHistorialService {
 
       return {
         success: true,
-        data: Array.isArray(productos) ? productos : [],
+        data: productos,
         message:
           productos.length === 0 ? "No hay productos con stock bajo" : null,
       };
