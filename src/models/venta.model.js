@@ -1,6 +1,5 @@
 import { DataTypes } from "sequelize";
 import { sequelize } from "../config/db.js";
-import Usuario from "./usuario.model.js";
 
 const Venta = sequelize.define(
   "Venta",
@@ -11,7 +10,7 @@ const Venta = sequelize.define(
       autoIncrement: true,
     },
     usuario_id: {
-      type: DataTypes.STRING,
+      type: DataTypes.STRING, // _id de MongoDB
       allowNull: false,
     },
     total: {
@@ -32,8 +31,6 @@ const Venta = sequelize.define(
   }
 );
 
-// Relaciones
-Venta.belongsTo(Usuario, { foreignKey: "usuario_id", as: "usuario" });
-Usuario.hasMany(Venta, { foreignKey: "usuario_id", as: "ventas" });
+// No hay relaciones con Usuario de Sequelize porque los usuarios están en MongoDB
 
 export default Venta;
