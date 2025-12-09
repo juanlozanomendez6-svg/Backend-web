@@ -2,87 +2,120 @@
 import path from "path";
 import { fileURLToPath, pathToFileURL } from "url";
 import app from "./app.js";
+
+// PostgreSQL
 import { testConnection, sequelize, syncModels } from "./config/db.js";
+
+// MongoDB
+import { connectMongo } from "./config/mongo.js";
+
 import logger from "./config/logger.js";
 
-// Para __dirname en ESM
+// Para usar __dirname en ESM
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Render asigna dinámicamente el puerto
 const PORT = process.env.PORT || 3000;
 
-const initializeDatabase = async () => {
+/* ================================
+       INICIALIZACIÓN MONGO
+================================ */
+const initializeMongo = async () => {
+  try {
+    await connectMongo();
+    logger.info("🍃 MongoDB conectado correctamente");
+  } catch (error) {
+    logger.error(`❌ Error conectando a MongoDB: ${error.message}`);
+    throw error;
+  }
+};
+
+/* ================================
+   INICIALIZACIÓN POSTGRES / SEQUELIZE
+================================ */
+const initializePostgres = async () => {
   try {
     const connected = await testConnection();
-    if (!connected) throw new Error("No se pudo conectar a la base de datos");
 
-    // Solo sincronizar modelos en desarrollo
+    if (!connected) throw new Error("❌ Error conectando a PostgreSQL");
+
+    // Solo sincronizar en desarrollo
     if (process.env.NODE_ENV === "development") {
       await syncModels(false);
     }
 
-    // Ejecutar seed opcionalmente
+    // Ejecutar seed (opcional)
     try {
       const seedPath = path.join(__dirname, "../scripts/seed.js");
       const { default: seedDatabase } = await import(
         pathToFileURL(seedPath).href
       );
       await seedDatabase();
-      logger.info("✅ Seed ejecutado correctamente");
+      logger.info("🌱 Seed ejecutado correctamente");
     } catch (seedError) {
-      logger.warn(
-        "⚠️ No se pudo ejecutar seed, continuar sin seed:",
-        seedError.message
-      );
+      logger.warn(`⚠️ Seed no ejecutado: ${seedError.message}`);
     }
 
+    logger.info("🐘 PostgreSQL listo");
     return true;
   } catch (error) {
-    logger.error("❌ Error inicializando base de datos:", error);
+    logger.error(`❌ Error inicializando PostgreSQL: ${error.message}`);
     return false;
   }
 };
 
+/* ================================
+            START SERVER
+================================ */
 const startServer = async () => {
   try {
     logger.info("🚀 Iniciando servidor POS...");
 
-    const dbInitialized = await initializeDatabase();
-    if (!dbInitialized)
-      throw new Error("Falló la inicialización de la base de datos");
+    // 1️⃣ Conectar MongoDB
+    await initializeMongo();
 
-    // Escuchar en el puerto asignado por Render
+    // 2️⃣ Inicializar PostgreSQL
+    const dbInitialized = await initializePostgres();
+    if (!dbInitialized) throw new Error("Falló la inicialización de Postgres");
+
+    // 3️⃣ Escuchar puerto
     app.listen(PORT, () => {
-      logger.info(`✅ Servidor ejecutándose en puerto ${PORT}`);
+      logger.info(`✅ Servidor corriendo en puerto ${PORT}`);
       logger.info(`📊 Environment: ${process.env.NODE_ENV}`);
-      logger.info(`🌐 URL: http://localhost:${PORT} (local)`);
       logger.info(`🔍 Health: http://localhost:${PORT}/health`);
     });
   } catch (error) {
-    logger.error("❌ Error iniciando servidor:", error);
+    logger.error(`❌ Error iniciar servidor: ${error.message}`);
     process.exit(1);
   }
 };
 
-// Cierre graceful
+/* ================================
+        GRACEFUL SHUTDOWN
+================================ */
 process.on("SIGINT", async () => {
   await sequelize.close();
-  process.exit(0);
-});
-process.on("SIGTERM", async () => {
-  await sequelize.close();
+  logger.warn("🔻 PostgreSQL cerrado");
   process.exit(0);
 });
 
-// Manejo de errores globales
-process.on("unhandledRejection", (reason, promise) =>
-  logger.error("❌ Unhandled Rejection:", promise, "reason:", reason)
+process.on("SIGTERM", async () => {
+  await sequelize.close();
+  logger.warn("🔻 PostgreSQL cerrado");
+  process.exit(0);
+});
+
+process.on("unhandledRejection", (reason) =>
+  logger.error(`❌ Unhandled Rejection: ${reason}`)
 );
+
 process.on("uncaughtException", (error) => {
-  logger.error("❌ Uncaught Exception:", error);
+  logger.error(`❌ Uncaught Exception: ${error.message}`);
   process.exit(1);
 });
 
-// Iniciar servidor
+/* ================================
+        INICIAR SERVIDOR
+================================ */
 startServer();

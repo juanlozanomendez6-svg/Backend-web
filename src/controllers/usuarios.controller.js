@@ -1,41 +1,44 @@
-import usuarioService from "../services/usuarios.service.js";
+import usuarioService from "../services/usuarios.mongo.service.js";
 
 const UsuarioController = {
   // Obtener todos los usuarios (solo admin)
   async getAll(req, res) {
     try {
       const result = await usuarioService.getAllUsuarios();
-      res.status(result.success ? 200 : 400).json(result);
+      return res.status(result.success ? 200 : 400).json(result);
     } catch (error) {
-      res
-        .status(500)
-        .json({ success: false, message: "Error al obtener usuarios" });
+      return res.status(500).json({
+        success: false,
+        message: "Error al obtener usuarios",
+      });
     }
   },
 
-  // Obtener usuario por ID (admin, supervisor o el propio usuario)
+  // Obtener usuario por ID
   async getById(req, res) {
     try {
       const { id } = req.params;
       const result = await usuarioService.getUsuarioById(id);
-      if (!result.success) return res.status(404).json(result);
-      res.json(result);
+
+      return res.status(result.success ? 200 : 404).json(result);
     } catch (error) {
-      res
-        .status(500)
-        .json({ success: false, message: "Error al obtener usuario" });
+      return res.status(500).json({
+        success: false,
+        message: "Error al obtener usuario",
+      });
     }
   },
 
-  // Crear nuevo usuario (solo admin) usando rol_id
+  // Crear usuario (solo admin)
   async create(req, res) {
     try {
       const { nombre, email, password, rol_id } = req.body;
 
       if (!nombre || !email || !password || !rol_id) {
-        return res
-          .status(400)
-          .json({ success: false, message: "Faltan datos requeridos" });
+        return res.status(400).json({
+          success: false,
+          message: "Faltan datos requeridos",
+        });
       }
 
       const result = await usuarioService.register({
@@ -45,26 +48,28 @@ const UsuarioController = {
         rol_id,
       });
 
-      if (!result.success) return res.status(400).json(result);
-
-      res.status(201).json(result);
+      return res.status(result.success ? 201 : 400).json(result);
     } catch (error) {
-      console.error(error);
-      res
-        .status(500)
-        .json({ success: false, message: "Error al crear usuario" });
+      console.error("❌ Error create:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Error al crear usuario",
+      });
     }
   },
 
-  // Actualizar usuario (admin o el propio usuario)
+  // Actualizar usuario
   async update(req, res) {
     try {
       const { id } = req.params;
+      const { nombre, email, password, rol_id } = req.body;
+
       const userData = {};
-      if (req.body.nombre) userData.nombre = req.body.nombre;
-      if (req.body.email) userData.email = req.body.email;
-      if (req.body.rol_id) userData.rol_id = req.body.rol_id;
-      if (req.body.password) userData.password = req.body.password;
+
+      if (nombre) userData.nombre = nombre;
+      if (email) userData.email = email;
+      if (password) userData.password = password;
+      if (rol_id) userData.rol_id = rol_id;
 
       if (Object.keys(userData).length === 0) {
         return res.status(400).json({
@@ -74,69 +79,80 @@ const UsuarioController = {
       }
 
       const result = await usuarioService.updateUsuario(id, userData);
-      if (!result.success) return res.status(400).json(result);
-      res.json(result);
+
+      return res.status(result.success ? 200 : 400).json(result);
     } catch (error) {
-      console.error(error);
-      res
-        .status(500)
-        .json({ success: false, message: "Error al actualizar usuario" });
+      console.error("❌ Error update:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Error al actualizar usuario",
+      });
     }
   },
 
-  // Desactivar usuario (solo admin)
+  // Desactivar usuario (soft delete)
   async delete(req, res) {
     try {
       const { id } = req.params;
+
       const result = await usuarioService.deleteUsuario(id);
-      if (!result.success) return res.status(400).json(result);
-      res.json(result);
+
+      return res.status(result.success ? 200 : 400).json(result);
     } catch (error) {
-      console.error(error);
-      res
-        .status(500)
-        .json({ success: false, message: "Error al desactivar usuario" });
+      console.error("❌ Error delete:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Error al desactivar usuario",
+      });
     }
   },
 
-  // Eliminar usuario permanentemente (hard delete, solo admin)
+  // Eliminar permanentemente
   async hardDelete(req, res) {
     try {
       const { id } = req.params;
+
       const result = await usuarioService.hardDeleteUsuario(id);
 
-      if (!result.success) return res.status(400).json(result);
-      res.json({ success: true, message: "Usuario eliminado permanentemente" });
+      return res.status(result.success ? 200 : 400).json({
+        success: result.success,
+        message: result.success
+          ? "Usuario eliminado permanentemente"
+          : result.message,
+      });
     } catch (error) {
-      console.error(error);
-      res
-        .status(500)
-        .json({ success: false, message: "Error al eliminar usuario" });
+      console.error("❌ Error hardDelete:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Error al eliminar usuario",
+      });
     }
   },
 
-  // Login de usuario
+  // Login
   async login(req, res) {
     try {
       const result = await usuarioService.login(req.body);
-      if (!result.success) return res.status(400).json(result);
-      res.json(result);
+
+      return res.status(result.success ? 200 : 400).json(result);
     } catch (error) {
-      console.error(error);
-      res
-        .status(500)
-        .json({ success: false, message: "Error al iniciar sesión" });
+      console.error("❌ Error login:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Error al iniciar sesión",
+      });
     }
   },
 
-  // Registro de usuario (público, con rol_id)
+  // Registro público
   async register(req, res) {
     try {
       const { nombre, email, password, rol_id } = req.body;
+
       if (!nombre || !email || !password || !rol_id) {
         return res.status(400).json({
           success: false,
-          message: "Faltan datos requeridos: nombre, email, password o rol_id",
+          message: "Faltan datos requeridos: nombre, email, password, rol_id",
         });
       }
 
@@ -146,13 +162,14 @@ const UsuarioController = {
         password,
         rol_id,
       });
-      if (!result.success) return res.status(400).json(result);
-      res.status(201).json(result);
+
+      return res.status(result.success ? 201 : 400).json(result);
     } catch (error) {
-      console.error(error);
-      res
-        .status(500)
-        .json({ success: false, message: "Error al registrar usuario" });
+      console.error("❌ Error register:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Error al registrar usuario",
+      });
     }
   },
 };
