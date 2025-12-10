@@ -16,7 +16,6 @@ class InventarioHistorialService {
         };
       }
 
-      // Obtener movimientos desde Postgres
       const movimientos = await InventarioHistorial.findAll({
         where: whereClause,
         include: [
@@ -50,6 +49,7 @@ class InventarioHistorialService {
   // Registrar movimiento de inventario
   async registrarMovimiento({ producto_id, cambio, motivo }) {
     try {
+      // ✅ Solo usamos los campos existentes en la tabla
       const producto = await Producto.findByPk(producto_id);
       if (!producto) {
         return {
@@ -64,7 +64,7 @@ class InventarioHistorialService {
         return { success: false, data: null, message: "Stock insuficiente" };
       }
 
-      // Crear movimiento en Postgres
+      // Crear movimiento
       const movimiento = await InventarioHistorial.create({
         producto_id,
         cambio,

@@ -34,12 +34,14 @@ const InventarioHistorialController = {
   // Registrar un movimiento de inventario
   async registrarMovimiento(req, res) {
     try {
-      // Solo enviamos los campos que realmente existen en la tabla
-      const movimientoData = { ...req.body };
+      // ✅ Solo enviamos los campos existentes en inventario_historial
+      const { producto_id, cambio, motivo } = req.body;
 
-      const result = await inventarioHistorialService.registrarMovimiento(
-        movimientoData
-      );
+      const result = await inventarioHistorialService.registrarMovimiento({
+        producto_id,
+        cambio,
+        motivo,
+      });
 
       if (!result.success) {
         return res.status(400).json(result);
